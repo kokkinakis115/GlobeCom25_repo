@@ -1,0 +1,4 @@
+__pycache__/
+myenv/
+.env
+__init__.py
