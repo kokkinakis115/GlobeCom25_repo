@@ -91,7 +91,7 @@ def select_action_greedy(env, agent_id):
     return chosen_node
 
 
-def test_greedy():
+def test_greedy(avg_tasks=None, arrival_rate=None):
     print("============================================================================================")
     
     num_agents = 3
@@ -100,7 +100,7 @@ def test_greedy():
     max_ep_len = 5000           # max timesteps in one episode
 
 
-    total_test_episodes = 20    # total num of testing episodes
+    total_test_episodes = 10    # total num of testing episodes
 
     #####################################################
 
@@ -121,9 +121,13 @@ def test_greedy():
         "max_dependencies": 100,
         "from_trace": True
     }
+    if arrival_rate is not None:
+        params["arrival_rate"] = arrival_rate
     
     print("Training environment name : " + env_name)
-    env = Environment(params=params)
+    env = Environment(params=params, avg_tasks=avg_tasks)
+    print("Using subtrace: ", env.trace_path)
+    print("Using arrival rate: ", env.request_arrival_rate)
 
     print("--------------------------------------------------------------------------------------------")
     

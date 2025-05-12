@@ -1,0 +1,2 @@
+avg_tasks,mean_completion_time,mean_power_consumption,mean_stored_in_edge,mean_stored_in_cloud,avg_execution_time_sec,avg_congestion_occurrences,avg_collocated_ratio,avg_parallelism_ratio
+2,106,30.900355032562032,0.23132861239334368,0.7686713876066563,2.159841012954712,108.7,0.6759812688475402,3.4707600202915607

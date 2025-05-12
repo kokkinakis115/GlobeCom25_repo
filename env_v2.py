@@ -13,7 +13,7 @@ base_path = os.path.dirname(os.path.abspath(__file__))
 class Environment(MultiAgentEnv):
     metadata = {'render.modes': ['console']}
 
-    def __init__(self, params):
+    def __init__(self, params, avg_tasks=None):
         super(Environment, self).__init__()
 
         self.time_periods = params.get('time_periods', 2)
@@ -46,8 +46,12 @@ class Environment(MultiAgentEnv):
         self.stored_in_cloud = 0
         self.total_ms = 0
         self.no_op_action = self.num_nodes_domain + self.num_nodes_shared
-        # self.trace_path = os.path.join(base_path, './pkl_files/job_graphs_avg_20.93_tasks.pkl')
-        self.trace_path = os.path.join(base_path, './job_graphs_cleaned.pkl')
+        if avg_tasks == None:
+            self.trace_path = os.path.join(base_path, './job_graphs_cleaned.pkl')
+        else:
+            self.trace_path = os.path.join(base_path, './pkl_files/job_graphs_avg_{}_tasks.pkl'.format(avg_tasks))
+        
+        # self.trace_path = os.path.join(base_path, './job_graphs_cleaned.pkl')
         # print("Getting traces from: ", self.trace_path)
         self.congestion_occurences = 0
         self.parallelism_ratio = []

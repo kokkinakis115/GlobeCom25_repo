@@ -3,12 +3,16 @@ from dqn_test import test_dqn
 from test_model import test_model
 import numpy as np
 import statistics
+import pandas as pd
 import time
+import os
+
 
 def plot_results():
-    # np.random.seed(0)
+    
+    # avg_tasks = 3
     start_time = time.time()
-    results = test_model()
+    results = test_greedy(avg_tasks=avg_tasks, arrival_rate=arrival_rate)
     elapsed_time = time.time() - start_time
     num_tests = len(results)
     microservices_in_nodes = []
@@ -58,7 +62,63 @@ def plot_results():
     #         microservices_per_node.append(node_microservices)
     #     for node_set in microservices_per_node:
     #         print(len(node_set))
+
+def evaluate_algorithm(test_func, avg_tasks=None, arrival_rate=None):
+    start_time = time.time()
+    results = test_func(avg_tasks=avg_tasks, arrival_rate=arrival_rate)
+    elapsed_time = time.time() - start_time
+    delays = []
+    congestions = []
+    costs = []
+    stored_in_edge = []
+    stored_in_cloud = []
+    collocated = []
+    parallelism_ratios = []
+
+    for result in results:
+        parallelism_ratios.append(statistics.mean(result.parallelism_ratio))
+        collocated.append(result.collocated_tasks / result.total_ms)
+        congestions.append(result.congestion_occurences)
+        delays.append(statistics.mean(result.app_total_comp_times))
+        costs.append(statistics.mean(result.power_consumptions))
+        stored_in_edge.append(result.stored_in_edge / result.total_ms)
+        stored_in_cloud.append(result.stored_in_cloud / result.total_ms)
+
+    return {
+        "avg_tasks": avg_tasks,
+        "mean_completion_time": statistics.mean(delays),
+        "mean_power_consumption": statistics.mean(costs),
+        "mean_stored_in_edge": statistics.mean(stored_in_edge),
+        "mean_stored_in_cloud": statistics.mean(stored_in_cloud),
+        "avg_execution_time_sec": elapsed_time / len(results),
+        "avg_congestion_occurrences": statistics.mean(congestions),
+        "avg_collocated_ratio": statistics.mean(collocated),
+        "avg_parallelism_ratio": statistics.mean(parallelism_ratios),
+    }
+
+def run_and_save_results(algorithm_name, test_func):
+    os.makedirs("./algo_results", exist_ok=True)
+    all_results = []
+    print(f"Running evaluations for '{algorithm_name}' algorithm...")
+    
+    for avg_tasks in range(2, 3):
+        if avg_tasks <= 8:
+            arrival_rate = 8
+        elif avg_tasks <= 14:
+            arrival_rate = 5
+        elif avg_tasks <= 20:
+            arrival_rate = 3
+        print(f"→ Evaluating avg_tasks = {avg_tasks}...")
+        metrics = evaluate_algorithm(test_func, avg_tasks, arrival_rate)
+        all_results.append(metrics)
+
+    df = pd.DataFrame(all_results)
+    csv_filename = f"{algorithm_name}_results.csv"
+    output_path = f"./algo_results/{csv_filename}"
+    df.to_csv(output_path, index=False)
+    print(f"✔️ Saved results to '{output_path}'")
+
     
 if __name__ == '__main__':
 
-    plot_results()
+    run_and_save_results("Greedy", test_greedy)
