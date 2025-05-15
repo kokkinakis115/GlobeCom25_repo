@@ -8,9 +8,9 @@ from dqn_train import DQN, flatten_obs
 from env_v2 import Environment 
 
 
-def test_dqn():
+def test_dqn(avg_tasks=None, arrival_rate=None, agents=2):
 
-    num_agents = 3
+    num_agents = agents
     test_iterations = 20
     # Load config
     config_path = os.path.join(base_path, "dqn_config.json")
@@ -39,11 +39,18 @@ def test_dqn():
         "max_dependencies": 100,
         "from_trace": True
     }
+    if arrival_rate is not None:
+        env_config["arrival_rate"] = arrival_rate
+
+    env = Environment(params=env_config, avg_tasks=avg_tasks)
+    print("Using subtrace: ", env.trace_path)
+    print("Using arrival rate: ", env.request_arrival_rate)
+
 
     resulting_environments = []
     for i in range(test_iterations):
         # Create environment instance.
-        env = Environment(env_config)
+        env = Environment(params=env_config, avg_tasks=avg_tasks)
 
         obs_dict, _ = env.reset()
         states = {agent: flatten_obs(obs) for agent, obs in obs_dict.items()}

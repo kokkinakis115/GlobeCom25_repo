@@ -49,7 +49,8 @@ class Environment(MultiAgentEnv):
         if avg_tasks == None:
             self.trace_path = os.path.join(base_path, './job_graphs_cleaned.pkl')
         else:
-            self.trace_path = os.path.join(base_path, './pkl_files/job_graphs_avg_{}_tasks.pkl'.format(avg_tasks))
+            self.trace_path = os.path.join(base_path, './pkl_files3/job_graphs_avg_{}_tasks.pkl'.format(avg_tasks))
+            # print("Getting traces from: ", self.trace_path)
         
         # self.trace_path = os.path.join(base_path, './job_graphs_cleaned.pkl')
         # print("Getting traces from: ", self.trace_path)
@@ -108,6 +109,10 @@ class Environment(MultiAgentEnv):
             with open(self.trace_path, 'rb') as f:
                 job_graphs = pickle.load(f)
                 job_list = list(job_graphs.values())
+            # print(self.trace_path)
+            # for job in job_list:
+            #     print(job.nodes(data=True))
+            #     break
         # self.microservice_cpu = np.random.uniform(0.1, 5, self.num_microservices)
         # self.microservice_startup = np.random.choice([5, 10, 25], self.num_microservices)
         requests_per_agent = []
@@ -149,21 +154,6 @@ class Environment(MultiAgentEnv):
             agent: spaces.Discrete(self.num_nodes_domain+self.num_nodes_shared+1) for agent in self.agents
         }
 
-    # def get_joint_observation(self):
-    #     return {
-    #         "latencies": self.joint_latencies,
-    #         "node_capacities": np.vstack((np.vstack(self.remaining_node_capacities_domain[:, :, self.current_period:self.current_period+self.look_ahead_window]), self.remaining_node_capacities_shared[:, self.current_period:self.current_period+self.look_ahead_window])),
-    #         "node_costs": np.concatenate([self.node_costs_domain.flatten(), self.node_costs_shared.flatten()]),
-    #         "power_consumption": np.concatenate([self.power_consumption_domain.flatten(), self.power_consumption_shared.flatten()]),
-    #         "device_coef": np.concatenate([self.device_coef_domain.flatten(), self.device_coef_shared.flatten()]),
-    #         "hosted_microservices": np.vstack((np.vstack(self.hosted_microservices_domain), self.hosted_microservices_shared)),
-    #         "microservice_cpu": self.microservice_cpu,
-    #         "microservice_startup": self.microservice_startup,
-    #         "current_ms": self.current_ms,
-    #         "current_app": self.current_app,
-    #         "requests": self.requests_per_agent,
-    #         "latencies_from_user": self.latency_from_user_obs
-    #         }
 
     def get_all_observations(self):
         observations = {}

@@ -11,13 +11,11 @@ from env_v2 import Environment
 import numpy as np
 
 #################################### Testing ###################################
-def test_model():
-    print("============================================================================================")
-    
+def test_model(avg_tasks=None, arrival_rate=None, agents=2):
     ################## hyperparameters ##################
     
     # np.random.seed(1)
-    num_agents = 3
+    num_agents = agents
     num_agents_trained = 2
     env_name = f"CNA_Environment_{num_agents_trained}_agents_large_workload_2"
     
@@ -54,9 +52,13 @@ def test_model():
         "max_dependencies": 100,
         "from_trace": True
     }
+    if arrival_rate is not None:
+        params["arrival_rate"] = arrival_rate
     
     print("Training environment name : " + env_name)
-    env = Environment(params=params)
+    env = Environment(params=params, avg_tasks=avg_tasks)
+    print("Using subtrace: ", env.trace_path)
+    print("Using arrival rate: ", env.request_arrival_rate)
 
     # state space dimension
 
@@ -143,7 +145,7 @@ def test_model():
         
         resulting_environments.append(env)
         env.close()
-        env = Environment(params=params)
+        env = Environment(params=params, avg_tasks=avg_tasks)
 
     env.close()
 

@@ -91,16 +91,16 @@ def select_action_greedy(env, agent_id):
     return chosen_node
 
 
-def test_greedy(avg_tasks=None, arrival_rate=None):
+def test_greedy(avg_tasks=None, arrival_rate=None, agents=2):
     print("============================================================================================")
     
-    num_agents = 3
+    num_agents = agents
     env_name = f"CNA_Environment_{num_agents}_agents"
     
     max_ep_len = 5000           # max timesteps in one episode
 
 
-    total_test_episodes = 10    # total num of testing episodes
+    total_test_episodes = 20    # total num of testing episodes
 
     #####################################################
 
@@ -139,8 +139,7 @@ def test_greedy(avg_tasks=None, arrival_rate=None):
         env.reset()
         done = False
         for t in range(1, max_ep_len+1):
-            # full_state = env.get_joint_observation_space()
-            # agent_observation_spaces = []
+            
             agent_actions = []
             num_active_agents = 0
             active_agents = []
@@ -169,11 +168,11 @@ def test_greedy(avg_tasks=None, arrival_rate=None):
             if env.current_period == env.time_periods-1:
                 done = True
                 is_terminals["__all__"] = True
-            
+
             total_norm_reward = num_agents*sum(rewards)/num_active_agents if num_active_agents != 0 else 0
             # print(total_norm_reward, agent_actions)
             ep_reward += sum(rewards)
-    
+
             # break; if the episode is over
             if done:
                 break
@@ -181,10 +180,10 @@ def test_greedy(avg_tasks=None, arrival_rate=None):
         test_running_reward +=  ep_reward
         print('Episode: {} \t\t Reward: {}'.format(ep, round(ep_reward, 2)))
         ep_reward = 0
-        
+
         resulting_environments.append(env)
         env.close()
-        env = Environment(params=params)
+        env = Environment(params=params, avg_tasks=avg_tasks)
 
     env.close()
 
@@ -195,5 +194,5 @@ def test_greedy(avg_tasks=None, arrival_rate=None):
     print("average test reward : " + str(avg_test_reward))
 
     print("============================================================================================")
-    
+
     return resulting_environments

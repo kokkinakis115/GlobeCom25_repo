@@ -10,7 +10,8 @@ import os
 
 def plot_results():
     
-    # avg_tasks = 3
+    avg_tasks = 2
+    arrival_rate=5
     start_time = time.time()
     results = test_greedy(avg_tasks=avg_tasks, arrival_rate=arrival_rate)
     elapsed_time = time.time() - start_time
@@ -24,7 +25,7 @@ def plot_results():
     stored_in_cloud = []
     collocated = []
     parallelism_ratios = []
-    
+
     for result in results:
         parallelism_ratios.append(statistics.mean(result.parallelism_ratio))
         collocated.append(result.collocated_tasks/result.total_ms)
@@ -63,9 +64,9 @@ def plot_results():
     #     for node_set in microservices_per_node:
     #         print(len(node_set))
 
-def evaluate_algorithm(test_func, avg_tasks=None, arrival_rate=None):
+def evaluate_algorithm(test_func, avg_tasks=None, arrival_rate=None, agents=2):
     start_time = time.time()
-    results = test_func(avg_tasks=avg_tasks, arrival_rate=arrival_rate)
+    results = test_func(avg_tasks=avg_tasks, arrival_rate=arrival_rate, agents=agents)
     elapsed_time = time.time() - start_time
     delays = []
     congestions = []
@@ -100,25 +101,28 @@ def run_and_save_results(algorithm_name, test_func):
     os.makedirs("./algo_results", exist_ok=True)
     all_results = []
     print(f"Running evaluations for '{algorithm_name}' algorithm...")
-    
-    for avg_tasks in range(2, 3):
-        if avg_tasks <= 8:
-            arrival_rate = 8
-        elif avg_tasks <= 14:
+    # arrival_rate = 5
+    for num_agents in range(1, 6):
+        if num_agents <= 3:
             arrival_rate = 5
-        elif avg_tasks <= 20:
+        elif num_agents <= 4:
             arrival_rate = 3
-        print(f"→ Evaluating avg_tasks = {avg_tasks}...")
-        metrics = evaluate_algorithm(test_func, avg_tasks, arrival_rate)
+        elif num_agents <= 5:
+            arrival_rate = 2        
+        print(f"→ Evaluating num_agents = {num_agents}...")
+        metrics = evaluate_algorithm(test_func, avg_tasks=None, arrival_rate=arrival_rate, agents=num_agents)
         all_results.append(metrics)
 
     df = pd.DataFrame(all_results)
     csv_filename = f"{algorithm_name}_results.csv"
-    output_path = f"./algo_results/{csv_filename}"
+    output_path = f"./multi_domain_results/{csv_filename}"
     df.to_csv(output_path, index=False)
     print(f"✔️ Saved results to '{output_path}'")
 
     
 if __name__ == '__main__':
 
+    # plot_results()
     run_and_save_results("Greedy", test_greedy)
+    run_and_save_results("DQN", test_dqn)
+    run_and_save_results("GRL", test_model)
