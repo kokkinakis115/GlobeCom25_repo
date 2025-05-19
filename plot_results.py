@@ -11,9 +11,9 @@ import os
 def plot_results():
     
     avg_tasks = 2
-    arrival_rate=5
+    arrival_rate=6
     start_time = time.time()
-    results = test_greedy(avg_tasks=avg_tasks, arrival_rate=arrival_rate)
+    results = test_greedy(avg_tasks=None, arrival_rate=arrival_rate, agents=3)
     elapsed_time = time.time() - start_time
     num_tests = len(results)
     microservices_in_nodes = []
@@ -45,6 +45,7 @@ def plot_results():
     print("Average Power Consumption per Microservice: ", statistics.mean(costs))
     print("Percentage Stored in Edge: ", statistics.mean(stored_in_edge))
     print("Percentage Stored in Cloud: ", statistics.mean(stored_in_cloud))
+    
     print("Average Execution Time: " + str(elapsed_time/len(results)) + " seconds.")
     print("Average Congestion Occurrences: ", statistics.mean(congestions))
     print("Percentage of collocated tasks: ", statistics.mean(collocated))
@@ -122,7 +123,7 @@ def run_and_save_results(algorithm_name, test_func):
     
 if __name__ == '__main__':
 
-    # plot_results()
-    run_and_save_results("Greedy", test_greedy)
-    run_and_save_results("DQN", test_dqn)
-    run_and_save_results("GRL", test_model)
+    plot_results()
+    # run_and_save_results("Greedy", test_greedy)
+    # run_and_save_results("DQN", test_dqn)
+    # run_and_save_results("GRL", test_model)

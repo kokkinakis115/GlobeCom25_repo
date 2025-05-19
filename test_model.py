@@ -16,8 +16,8 @@ def test_model(avg_tasks=None, arrival_rate=None, agents=2):
     
     # np.random.seed(1)
     num_agents = agents
-    num_agents_trained = 2
-    env_name = f"CNA_Environment_{num_agents_trained}_agents_large_workload_2"
+    num_agents_trained = 3
+    env_name = f"CNA_Environment_2_agents_large_workload_2"
     
     max_ep_len = 2000           # max timesteps in one episode
 
@@ -39,11 +39,11 @@ def test_model(avg_tasks=None, arrival_rate=None, agents=2):
         "time_periods": 11,
         "agents": num_agents,
         "num_nodes_domain": 10,
-        "num_nodes_shared": 3,
-        "capacity_range_domain": (20, 40),
-        "capacity_range_shared": (60, 120),
+        "num_nodes_shared": 10,
+        "capacity_range_domain": (20, 30),
+        "capacity_range_shared": (100, 200),
         # "num_microservices": 10,
-        "arrival_rate": 6,
+        "arrival_rate": 5,
         "look_ahead_window": 500,
         # "max_ms": 5,
         "window": 20,

@@ -19,7 +19,7 @@ def train():
     
     ####### initialize environment hyperparameters ######
     num_agents = 2
-    env_name = f"CNA_Environment_{num_agents}_agents_large_workload_2"
+    env_name = f"Environment_{num_agents}_agents_low_proprietary"
     max_ep_len = 2000
     # max_ep_len = 400                    # max timesteps in one episode
     max_training_timesteps = int(1.5e5)   # break training loop if timeteps > max_training_timesteps
@@ -54,12 +54,12 @@ def train():
     params = {
         "time_periods": 11,
         "agents": num_agents,
-        "num_nodes_domain": 15,
-        "num_nodes_shared": 5,
-        "capacity_range_domain": (20, 40),
+        "num_nodes_domain": 10,
+        "num_nodes_shared": 10,
+        "capacity_range_domain": (20, 30),
         "capacity_range_shared": (100, 200),
         # "num_microservices": 10,
-        "arrival_rate": 7,
+        "arrival_rate": 5,
         "look_ahead_window": 500,
         # "max_ms": 5,
         "window": 20,
