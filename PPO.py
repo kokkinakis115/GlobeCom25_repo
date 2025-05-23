@@ -7,6 +7,7 @@ import preprocessing_representations
 from torch_geometric.nn import global_mean_pool
 from torch_geometric.data import Data, Batch
 from torch.nn.utils.rnn import pad_sequence, pack_padded_sequence
+import statistics
 
 
 
@@ -53,19 +54,29 @@ class RolloutBuffer:
         del self.critic_states_req[:]
 
 class ActorCriticWorker(nn.Module):
-    def __init__(self, num_nodes, num_agents, action_dims, inference=False):
+    def __init__(self, num_nodes, num_agents, action_dims, inference=False, messages=False, modified=False):
         super(ActorCriticWorker, self).__init__()
         self.zeros_arr = torch.zeros(action_dims, dtype=torch.float32)
         self.action_dims = action_dims
         self.inference = inference
         self.num_agents = num_agents
+        self.messages = messages
+        self.modified = modified
         
         application_gnn_input_dim = 3 # CPU, Data, is_current
-        application_embedding_dim = 3
+
+        if messages:
+            application_embedding_dim = 3 + 2 # plus messages
+        else: 
+            application_embedding_dim = 3
 
         self.application_gnn = GNNApplication(input_dim=application_gnn_input_dim, hidden_dim_gnn=16, output_dim=application_embedding_dim) # 3 node features CPU, Data, is_current
 
         input_dim_gnn_infr = 4 # CPU, Cost, Coeff, has_predecessor, has_latest_request
+
+        if modified:
+            input_dim_gnn_infr = 5
+
         self.policy_gnn = GNNAttention(input_dim=input_dim_gnn_infr, hidden_dim_gnn=64, embedding_dim=application_embedding_dim+1, attention_dim=32, output_dim=1, num_nodes=num_nodes)
 
         self.critic_gnn = GNNCritic(input_dim=input_dim_gnn_infr, hidden_dim_gnn=64, embedding_dim=application_embedding_dim+1, attention_dim=32, output_dim=1, num_nodes=num_nodes)
@@ -85,10 +96,14 @@ class ActorCriticWorker(nn.Module):
             if state['request_dependencies'][i][1] == 4:
                 predecessors.append(int(state['request_dependencies'][i][0]))
 
-        # For the current period we need the minimum available capacities
-        cpu = [int(min(node_capacity)) for node_capacity in state['node_capacities']]
+        avg_cpu = [statistics.mean(node_capacity) for node_capacity in state['node_capacities']]
+        cpu = [int(min(node_capacity)) for node_capacity in state['node_capacities']] # min cpu
 
-        graph_repr = preprocessing_representations.produce_infr_repr(cpu, state['node_costs'], state['device_coef'], state['latencies'], state['current_allocation'], predecessors)
+        if self.modified:
+            graph_repr = preprocessing_representations.produce_infr_repr_mod(avg_cpu, cpu, state['node_costs'], state['device_coef'], state['latencies'], state['current_allocation'], predecessors)
+        else:
+            graph_repr = preprocessing_representations.produce_infr_repr(cpu, state['node_costs'], state['device_coef'], state['latencies'], state['current_allocation'], predecessors)
+
         ### Tensorize Inputs
         dependencies_repr = Batch.from_data_list([dependencies_repr])
         graph_repr_batch = Batch.from_data_list([graph_repr])
@@ -96,18 +111,19 @@ class ActorCriticWorker(nn.Module):
 
         ### Actor Model
         req_embeddings = self.application_gnn(dependencies_repr).squeeze() # process current request with attention to future requests
-        # print(state["requests_left"])
-        # print("req_embeddings", req_embeddings.shape)
 
         requests_left = torch.tensor([state['requests_left']], dtype=torch.float32)
-        # print("requests_left", requests_left.shape)
-        req_embeddings = torch.cat((req_embeddings, requests_left), dim=0) # Concatenate along the feature dimension
-        
+
+        if self.messages:
+            other_agents_messages = torch.tensor([state['others_requests_left'], state['others_utilization']], dtype=torch.float32)
+            req_embeddings = torch.cat((req_embeddings, requests_left, other_agents_messages), dim=0) # Concatenate along the feature dimension
+        else:
+            req_embeddings = torch.cat((req_embeddings, requests_left), dim=0)
+
         if not batch:
             req_embeddings = req_embeddings.unsqueeze(0)
         node_scores = self.policy_gnn(graph_repr_batch, req_embeddings).squeeze() # process graph with attention to requests
 
-        # print("node_scores", node_scores)
         action_probs = torch.softmax(node_scores, dim=0) # Shape: (num_of_nodes,)
     
         if action_mask is not None:
@@ -158,14 +174,14 @@ class ActorCriticWorker(nn.Module):
     
 
 class PPO_MARL:
-    def __init__(self, nodes_per_agent, shared_nodes, action_dims, lr_gnn, gamma, K_epochs, eps_clip, number_of_agents, inference=False):
+    def __init__(self, nodes_per_agent, shared_nodes, action_dims, lr_gnn, gamma, K_epochs, eps_clip, number_of_agents, inference=False, messages=False, modified=False):
         self.nodes_per_agent = nodes_per_agent
         self.action_dims = action_dims
         self.gamma = gamma
         self.eps_clip = eps_clip
         self.K_epochs = K_epochs
-        self.policy = ActorCriticWorker(nodes_per_agent+shared_nodes, number_of_agents, action_dims, inference).to(device)
-        self.policy_old = ActorCriticWorker(nodes_per_agent+shared_nodes, number_of_agents, action_dims, inference).to(device)
+        self.policy = ActorCriticWorker(nodes_per_agent+shared_nodes, number_of_agents, action_dims, inference, messages, modified).to(device)
+        self.policy_old = ActorCriticWorker(nodes_per_agent+shared_nodes, number_of_agents, action_dims, inference, messages, modified).to(device)
         self.buffer = RolloutBuffer()
         self.num_agents = number_of_agents
         self.buffers = [RolloutBuffer() for _ in range(number_of_agents)]

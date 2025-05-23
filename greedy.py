@@ -107,20 +107,19 @@ def test_greedy(avg_tasks=None, arrival_rate=None, agents=2):
     params = {
         "time_periods": 11,
         "agents": num_agents,
-        "num_nodes_domain": 10,
+        "num_nodes_domain": 5,
         "num_nodes_shared": 10,
-        "capacity_range_domain": (20, 30),
+        "capacity_range_domain": (16, 24),
         "capacity_range_shared": (100, 200),
-        # "num_microservices": 10,
-        "arrival_rate": 5,
+        "arrival_rate": 6,
         "look_ahead_window": 500,
-        # "max_ms": 5,
         "window": 20,
         "max_tasks": 60,
         "task_features": 2,
         "max_dependencies": 100,
         "from_trace": True
     }
+    
     if arrival_rate is not None:
         params["arrival_rate"] = arrival_rate
     

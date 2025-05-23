@@ -18,9 +18,9 @@ def train():
     print("============================================================================================")
     
     ####### initialize environment hyperparameters ######
-    num_agents = 2
-    env_name = f"Environment_{num_agents}_agents_low_proprietary"
-    max_ep_len = 2000
+    num_agents = 3
+    env_name = f"Environment_{num_agents}_agents_modified"
+    max_ep_len = 2500
     # max_ep_len = 400                    # max timesteps in one episode
     max_training_timesteps = int(1.5e5)   # break training loop if timeteps > max_training_timesteps
     
@@ -56,12 +56,10 @@ def train():
         "agents": num_agents,
         "num_nodes_domain": 10,
         "num_nodes_shared": 10,
-        "capacity_range_domain": (20, 30),
+        "capacity_range_domain": (16, 24),
         "capacity_range_shared": (100, 200),
-        # "num_microservices": 10,
-        "arrival_rate": 5,
+        "arrival_rate": 6,
         "look_ahead_window": 500,
-        # "max_ms": 5,
         "window": 20,
         "max_tasks": 60,
         "task_features": 2,
@@ -160,7 +158,7 @@ def train():
     ctde = True
     
     # initialize a PPO agent
-    ppo_agent = PPO_MARL(params['num_nodes_domain'], params['num_nodes_shared'], action_dim, lr_gnn, gamma, K_epochs, eps_clip, params['agents'])
+    ppo_agent = PPO_MARL(params['num_nodes_domain'], params['num_nodes_shared'], action_dim, lr_gnn, gamma, K_epochs, eps_clip, params['agents'], inference=False, messages=False, modified=True)
     
     # track total training time
     start_time = datetime.now().replace(microsecond=0)
@@ -232,6 +230,8 @@ def train():
             _, rewards_dict, is_terminals, _, _ = env.step(action_dict)
 
             rewards = [rewards_dict[f"agent_{agent_id}"] for agent_id in range(num_agents)]
+            # print("Actions: ", agent_actions)
+            # print("Rewards: ", rewards)
             
             # done = is_terminals.get("__all__", False)
             for agent_id in range(num_agents):

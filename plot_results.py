@@ -13,7 +13,7 @@ def plot_results():
     avg_tasks = 2
     arrival_rate=6
     start_time = time.time()
-    results = test_greedy(avg_tasks=None, arrival_rate=arrival_rate, agents=3)
+    results = test_greedy(avg_tasks=None, arrival_rate=arrival_rate, agents=4)
     elapsed_time = time.time() - start_time
     num_tests = len(results)
     microservices_in_nodes = []

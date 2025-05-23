@@ -124,7 +124,8 @@ def produce_local_app_repr(task_features, dependencies, current_ms, num_microser
 
     return data
 
-def produce_infr_repr(node_capacities, node_costs, device_coef, latencies, current_app_allocation, predecessors):
+
+def produce_infr_repr(min_capacities, node_costs, device_coef, latencies, current_app_allocation, predecessors):
     num_nodes = latencies.shape[0]
     pred_allocated_indicator = np.zeros(num_nodes, dtype=np.float32)
     # has_last_request = np.zeros(num_nodes, dtype=np.float32)
@@ -132,7 +133,32 @@ def produce_infr_repr(node_capacities, node_costs, device_coef, latencies, curre
         assigned_node = current_app_allocation[task_idx]
         if assigned_node >= 0:  # Check if it has been allocated
             pred_allocated_indicator[assigned_node] = 1.0
-    node_features = np.stack([node_capacities, node_costs, device_coef, pred_allocated_indicator], axis=1)
+    node_features = np.stack([min_capacities, node_costs, device_coef, pred_allocated_indicator], axis=1)
+    node_features = torch.tensor(node_features, dtype=torch.float32)
+
+    edge_index = []
+    edge_attr = []
+    for i in range(num_nodes):
+        for j in range(num_nodes):
+            if latencies[i, j] > 0:
+                edge_index.append([i, j])
+                edge_attr.append([latencies[i, j]])
+
+    edge_index = torch.tensor(edge_index, dtype=torch.long).t()  # shape [2, num_edges]
+    edge_attr = torch.tensor(edge_attr, dtype=torch.float32)
+
+    data = Data(x=node_features, edge_index=edge_index, edge_attr=edge_attr)
+    return data
+
+def produce_infr_repr_mod(avg_capacities ,min_capacities, node_costs, device_coef, latencies, current_app_allocation, predecessors):
+    num_nodes = latencies.shape[0]
+    pred_allocated_indicator = np.zeros(num_nodes, dtype=np.float32)
+    # has_last_request = np.zeros(num_nodes, dtype=np.float32)
+    for task_idx in predecessors:
+        assigned_node = current_app_allocation[task_idx]
+        if assigned_node >= 0:  # Check if it has been allocated
+            pred_allocated_indicator[assigned_node] = 1.0
+    node_features = np.stack([avg_capacities, min_capacities, node_costs, device_coef, pred_allocated_indicator], axis=1)
     node_features = torch.tensor(node_features, dtype=torch.float32)
 
     edge_index = []

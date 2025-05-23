@@ -8,6 +8,7 @@ import networkx as nx
 import random
 from ray.rllib.env.multi_agent_env import MultiAgentEnv
 import os
+import statistics
 
 base_path = os.path.dirname(os.path.abspath(__file__))
 class Environment(MultiAgentEnv):
@@ -46,6 +47,7 @@ class Environment(MultiAgentEnv):
         self.stored_in_cloud = 0
         self.total_ms = 0
         self.no_op_action = self.num_nodes_domain + self.num_nodes_shared
+        self.avg_tasks = avg_tasks
         if avg_tasks == None:
             self.trace_path = os.path.join(base_path, './job_graphs_cleaned.pkl')
         else:
@@ -67,10 +69,9 @@ class Environment(MultiAgentEnv):
         self.max_val = self.capacity_range_shared[1]
 
         # Power
-        self.power_consumption_domain = np.random.uniform(1, 5, (self.nr_agents, self.num_nodes_domain))
-        # self.max_cost = self.node_costs_domain.max()
-        self.max_consumption = 20
-        self.power_consumption_shared = np.random.uniform(10, 20, self.num_nodes_shared)
+        self.power_consumption_domain = np.random.uniform(10, 20, (self.nr_agents, self.num_nodes_domain))
+        self.max_consumption = 50
+        self.power_consumption_shared = np.random.uniform(40, 50, self.num_nodes_shared)
         
         self.node_capacities_domain = np.array([[[float(self.total_node_capacity_domain[agent][node]) for _ in range(self.time_periods+max(self.time_periods//5, 5000))] for node in range(self.num_nodes_domain)] for agent in range(self.nr_agents)])
         self.node_capacities_shared = np.array([[float(self.total_node_capacity_shared[node]) for _ in range(self.time_periods+max(self.time_periods//5, 5000))] for node in range(self.num_nodes_shared)])
@@ -85,21 +86,21 @@ class Environment(MultiAgentEnv):
         self.operating_costs = []
         
         # Device Coefficient
-        self.device_coef_domain = np.random.choice([1, 1.5, 2 , 5], (self.nr_agents, self.num_nodes_domain), p = [0.1, 0.4, 0.4, 0.1])
-        self.device_coef_shared = np.random.choice([0.25, 0.5, 0.75, 1], self.num_nodes_shared, p = [0.1, 0.4, 0.4, 0.1])
+        self.device_coef_domain = np.random.choice([1, 1.5, 2 , 3], (self.nr_agents, self.num_nodes_domain), p = [0.1, 0.5, 0.3, 0.1])
+        self.device_coef_shared = np.random.choice([0.25, 0.5, 0.75, 1], self.num_nodes_shared, p = [0.2, 0.3, 0.4, 0.1])
         # Hosted Ms
         self.hosted_microservices_domain = np.random.choice([0, 1], (self.nr_agents, self.num_nodes_domain, self.num_microservices), p = [0.4, 0.6])
         self.hosted_microservices_shared = np.random.choice([0, 1], (self.num_nodes_shared, self.num_microservices), p = [0.2, 0.8])
         
-        self.latency_from_user = np.concatenate((np.random.randint(1, 5, self.nr_agents), np.array([15])))
-        self.latencies_domain = np.random.randint(1, 5, (self.nr_agents, self.num_nodes_domain, self.num_nodes_domain))
+        self.latency_from_user = np.concatenate((np.random.randint(5, 10, self.nr_agents), np.array([20])))
+        self.latencies_domain = np.random.randint(1, 10, (self.nr_agents, self.num_nodes_domain, self.num_nodes_domain))
 
-        latencies_shared = np.random.randint(20,40 ,size=(self.num_nodes_shared, self.num_nodes_shared))
-        latencies_shared = (latencies_shared + latencies_shared.T)/2
+        latencies_shared = np.random.randint(40, 80 ,size=(self.num_nodes_shared, self.num_nodes_shared))
+        self.latencies_shared = (latencies_shared + latencies_shared.T)/2
         self.latencies = np.array([utils.create_adj_matrix(self.num_nodes_domain+self.num_nodes_shared, self.num_nodes_domain, self.num_nodes_shared, latencies_shared) for _ in range(self.nr_agents)])
         
         self.joint_latencies = utils.create_joint_matrix(self.latencies, self.num_nodes_domain, self.num_nodes_shared)
-        self.max_latency = 40
+        self.max_latency = 80
         self.allocation_per_timeslot_domain = np.array([[[set() for _ in range(self.time_periods+max(self.time_periods//5, 5000))] for node in range(self.num_nodes_domain)] for agent in range(self.nr_agents)])
         self.allocation_per_timeslot_shared = np.array([[set() for _ in range(self.time_periods+max(self.time_periods//5, 5000))] for node in range(self.num_nodes_shared)])
 
@@ -122,7 +123,7 @@ class Environment(MultiAgentEnv):
             num_requests_per_period = [np.where(np.logical_and(event_times>time_period, event_times<=time_period+1))[0].shape[0] for time_period in range(self.time_periods)]
             requests = []
             for period in range(self.time_periods):
-                request=[(np.random.choice([20, 30, 50, 100], p=[0.35, 0.3, 0.3, 0.05]), random.choice(job_list)) for _ in range(num_requests_per_period[period])]
+                request=[(np.random.choice([20, 30, 50, 100], p=[0.35, 0.3, 0.3, 0.05]), random.choice(job_list)) for _ in range(num_requests_per_period[period])] #legacy
                 requests.append(request)
             requests_to_schedule_per_agent.append(num_requests_per_period.copy())
             requests_per_agent.append(requests)
@@ -190,17 +191,19 @@ class Environment(MultiAgentEnv):
                     "current_ms": self.current_ms[agent_index],
                     "requests_left": self.requests_to_schedule_per_agent[agent_index][self.current_period]- self.current_app[agent_index],
                     "agent_active": 1 if self.current_app[agent_index] < self.requests_to_schedule_per_agent[agent_index][self.current_period] else 0,
-                    "current_allocation": self.current_app_allocation[agent_index]
+                    "current_allocation": self.current_app_allocation[agent_index],
+                    # "others_requests_left": statistics.mean([self.requests_to_schedule_per_agent[other_agent][self.current_period]- self.current_app[other_agent] for other_agent in range(self.nr_agents) if other_agent != agent_index]) if self.nr_agents > 1 else 0,
+                    # "others_utilization": statistics.mean([statistics.mean([statistics.mean(self.remaining_node_capacities_domain[other_agent][node, self.current_period:self.current_period+self.look_ahead_window])/self.node_capacities_domain[other_agent][node][0] for node in range(self.num_nodes_domain)]) for other_agent in range(self.nr_agents) if other_agent != agent_index]) if self.nr_agents > 1 else 0,
                 }
         return observations
 
     def reset(self, seed=None, options=None):
         self.current_period = 0
         self.current_app_total = 0
-        self.current_app = np.zeros(self.nr_agents, dtype=np.int16)
-        self.current_ms = np.zeros(self.nr_agents, dtype=np.int16)
+        self.current_app = np.zeros(self.nr_agents, dtype=np.int32)
+        self.current_ms = np.zeros(self.nr_agents, dtype=np.int32)
         self.current_app_endtimes = [{} for agent in range(self.nr_agents)]
-        self.current_app_allocation = np.zeros((self.nr_agents, self.max_tasks), dtype=np.int32)
+        self.current_app_allocation = (-1)*np.ones((self.nr_agents, self.max_tasks), dtype=np.int32)
         self.app_total_comp_times = []
         self.operating_costs = []
         self.power_consumptions = []
@@ -208,8 +211,18 @@ class Environment(MultiAgentEnv):
         self.stored_in_cloud = 0
         self.total_ms = 0
         self.no_op_action = self.num_nodes_domain + self.num_nodes_shared
+        if self.avg_tasks == None:
+            self.trace_path = os.path.join(base_path, './job_graphs_cleaned.pkl')
+        else:
+            self.trace_path = os.path.join(base_path, './pkl_files3/job_graphs_avg_{}_tasks.pkl'.format(avg_tasks))
+            # print("Getting traces from: ", self.trace_path)
+        
+        # self.trace_path = os.path.join(base_path, './job_graphs_cleaned.pkl')
+        # print("Getting traces from: ", self.trace_path)
         self.congestion_occurences = 0
-
+        self.parallelism_ratio = []
+        self.collocated_tasks = 0
+        self.app_spans = np.zeros(self.nr_agents, dtype=np.int32)
 
         # Node Characteristics
         # Capacities
@@ -219,10 +232,9 @@ class Environment(MultiAgentEnv):
         self.max_val = self.capacity_range_shared[1]
 
         # Power
-        self.power_consumption_domain = np.random.uniform(1, 5, (self.nr_agents, self.num_nodes_domain))
-        # self.max_cost = self.node_costs_domain.max()
-        self.max_consumption = 20
-        self.power_consumption_shared = np.random.uniform(10, 20, self.num_nodes_shared)
+        self.power_consumption_domain = np.random.uniform(10, 20, (self.nr_agents, self.num_nodes_domain))
+        self.max_consumption = 50
+        self.power_consumption_shared = np.random.uniform(40, 50, self.num_nodes_shared)
         
         self.node_capacities_domain = np.array([[[float(self.total_node_capacity_domain[agent][node]) for _ in range(self.time_periods+max(self.time_periods//5, 5000))] for node in range(self.num_nodes_domain)] for agent in range(self.nr_agents)])
         self.node_capacities_shared = np.array([[float(self.total_node_capacity_shared[node]) for _ in range(self.time_periods+max(self.time_periods//5, 5000))] for node in range(self.num_nodes_shared)])
@@ -237,21 +249,21 @@ class Environment(MultiAgentEnv):
         self.operating_costs = []
         
         # Device Coefficient
-        self.device_coef_domain = np.random.choice([0.75, 1, 1.5], (self.nr_agents, self.num_nodes_domain), p = [0.2, 0.6, 0.2])
-        self.device_coef_shared = np.random.choice([0.5, 0.75, 1], self.num_nodes_shared, p = [0.1, 0.4, 0.5])
+        self.device_coef_domain = np.random.choice([1, 1.5, 2 , 3], (self.nr_agents, self.num_nodes_domain), p = [0.1, 0.5, 0.3, 0.1])
+        self.device_coef_shared = np.random.choice([0.25, 0.5, 0.75, 1], self.num_nodes_shared, p = [0.2, 0.3, 0.4, 0.1])
         # Hosted Ms
         self.hosted_microservices_domain = np.random.choice([0, 1], (self.nr_agents, self.num_nodes_domain, self.num_microservices), p = [0.4, 0.6])
         self.hosted_microservices_shared = np.random.choice([0, 1], (self.num_nodes_shared, self.num_microservices), p = [0.2, 0.8])
         
-        self.latency_from_user = np.concatenate((np.random.randint(1, 5, self.nr_agents), np.array([15])))
-        self.latencies_domain = np.random.randint(1, 5, (self.nr_agents, self.num_nodes_domain, self.num_nodes_domain))
+        self.latency_from_user = np.concatenate((np.random.randint(5, 10, self.nr_agents), np.array([20])))
+        self.latencies_domain = np.random.randint(1, 10, (self.nr_agents, self.num_nodes_domain, self.num_nodes_domain))
 
-        latencies_shared = np.random.randint(20,40 ,size=(self.num_nodes_shared, self.num_nodes_shared))
-        latencies_shared = (latencies_shared + latencies_shared.T)/2
+        latencies_shared = np.random.randint(40, 80 ,size=(self.num_nodes_shared, self.num_nodes_shared))
+        self.latencies_shared = (latencies_shared + latencies_shared.T)/2
         self.latencies = np.array([utils.create_adj_matrix(self.num_nodes_domain+self.num_nodes_shared, self.num_nodes_domain, self.num_nodes_shared, latencies_shared) for _ in range(self.nr_agents)])
         
         self.joint_latencies = utils.create_joint_matrix(self.latencies, self.num_nodes_domain, self.num_nodes_shared)
-        self.max_latency = 40
+        self.max_latency = 80
         self.allocation_per_timeslot_domain = np.array([[[set() for _ in range(self.time_periods+max(self.time_periods//5, 5000))] for node in range(self.num_nodes_domain)] for agent in range(self.nr_agents)])
         self.allocation_per_timeslot_shared = np.array([[set() for _ in range(self.time_periods+max(self.time_periods//5, 5000))] for node in range(self.num_nodes_shared)])
 
@@ -261,6 +273,10 @@ class Environment(MultiAgentEnv):
             with open(self.trace_path, 'rb') as f:
                 job_graphs = pickle.load(f)
                 job_list = list(job_graphs.values())
+            # print(self.trace_path)
+            # for job in job_list:
+            #     print(job.nodes(data=True))
+            #     break
         # self.microservice_cpu = np.random.uniform(0.1, 5, self.num_microservices)
         # self.microservice_startup = np.random.choice([5, 10, 25], self.num_microservices)
         requests_per_agent = []
@@ -270,13 +286,12 @@ class Environment(MultiAgentEnv):
             num_requests_per_period = [np.where(np.logical_and(event_times>time_period, event_times<=time_period+1))[0].shape[0] for time_period in range(self.time_periods)]
             requests = []
             for period in range(self.time_periods):
-                request=[(np.random.choice([20, 30, 50, 100], p=[0.35, 0.3, 0.3, 0.05]), random.choice(job_list)) for _ in range(num_requests_per_period[period])]
+                request=[(np.random.choice([20, 30, 50, 100], p=[0.35, 0.3, 0.3, 0.05]), random.choice(job_list)) for _ in range(num_requests_per_period[period])] #legacy
                 requests.append(request)
             requests_to_schedule_per_agent.append(num_requests_per_period.copy())
             requests_per_agent.append(requests)
         self.requests_per_agent = requests_per_agent
         self.requests_to_schedule_per_agent = np.array(requests_to_schedule_per_agent)
-
         return self.get_all_observations(), {}
         
 
@@ -286,39 +301,43 @@ class Environment(MultiAgentEnv):
             # ms_id = self.requests_per_agent[agent_id][self.current_period][self.current_app][1][self.current_ms]
             ms_startup = 0
             # data_size = self.requests_per_agent[agent_id][self.current_period][self.current_app[agent_id]][1]
-            time_required = self.device_coef_shared[node_id]*data_size/ms_cpu
+            time_required = self.device_coef_shared[node_id]*data_size*ms_cpu
+            # print("Time required (Shared): ", time_required)
+
         else: # compute for domain resources
             # ms_id = self.requests_per_agent[agent_id][self.current_period][self.[agent_id]][1][self.current_ms]
             # ms_cpu = self.microservice_cpu[ms_id]
             # ms_startup = self.microservice_startup[ms_id]
             ms_startup = 0
-            data_size = self.requests_per_agent[agent_id][self.current_period][self.current_app[agent_id]][0]
-            time_required = self.device_coef_domain[agent_id][node_id]*data_size/ms_cpu/5
+            # data_size = self.requests_per_agent[agent_id][self.current_period][self.current_app[agent_id]][0]
+            time_required = self.device_coef_domain[agent_id][node_id]*data_size*ms_cpu
+            # print("Time required (domain): ", time_required)
         if np.isnan(time_required):
             print(self.device_coef_domain[agent_id][node_id], data_size, ms_cpu)
             # print(time_required)
         return max(time_required, 1)
-    
+
     def get_action_mask(self, agent_id):
-        # Initialize the action mask with ones (valid actions)
-        task_ordering = list(nx.topological_sort(self.requests_per_agent[agent_id][self.current_period][self.current_app[agent_id]][1]))
-        current_task = task_ordering[self.current_ms[agent_id]]
-        action_mask = np.ones(self.num_nodes_domain+self.num_nodes_shared, dtype=np.int32)
-        ms_cpu = self.requests_per_agent[agent_id][self.current_period][self.current_app[agent_id]][1].nodes[current_task]['cpu_request']
-        data_size = abs(self.requests_per_agent[agent_id][self.current_period][self.current_app[agent_id]][1].nodes[current_task]['computation_time'])
+        # # Initialize the action mask with ones (valid actions)
+        # task_ordering = list(nx.topological_sort(self.requests_per_agent[agent_id][self.current_period][self.current_app[agent_id]][1]))
+        # current_task = task_ordering[self.current_ms[agent_id]]
+        # action_mask = np.ones(self.num_nodes_domain+self.num_nodes_shared, dtype=np.int32)
+        # ms_cpu = self.requests_per_agent[agent_id][self.current_period][self.current_app[agent_id]][1].nodes[current_task]['cpu_request']
+        # data_size = abs(self.requests_per_agent[agent_id][self.current_period][self.current_app[agent_id]][1].nodes[current_task]['computation_time'])
         
-        for node in range(self.num_nodes_domain):
-            computation_time = int(self.compute_time_required(node, agent_id, ms_cpu, data_size))
-            for period in range(computation_time):
-                if self.remaining_node_capacities_domain[agent_id][node][self.current_period+period] < ms_cpu:
-                    action_mask[node] = 0
-                    break
-        for node in range(self.num_nodes_shared):
-            computation_time = int(self.compute_time_required(node+self.num_nodes_domain, agent_id, ms_cpu, data_size))
-            for period in range(computation_time):
-                if self.remaining_node_capacities_shared[node][self.current_period+period] < ms_cpu:
-                    action_mask[node+self.num_nodes_domain] = 0
-                    break
+        # for node in range(self.num_nodes_domain):
+        #     computation_time = int(self.compute_time_required(node, agent_id, ms_cpu, data_size))
+        #     for period in range(computation_time):
+        #         if self.remaining_node_capacities_domain[agent_id][node][self.current_period+period] < ms_cpu:
+        #             action_mask[node] = 0
+        #             break
+        # for node in range(self.num_nodes_shared):
+        #     computation_time = int(self.compute_time_required(node+self.num_nodes_domain, agent_id, ms_cpu, data_size))
+        #     for period in range(computation_time):
+        #         if self.remaining_node_capacities_shared[node][self.current_period+period] < ms_cpu:
+        #             action_mask[node+self.num_nodes_domain] = 0
+        #             break
+        action_mask = np.ones(self.num_nodes_domain+self.num_nodes_shared, dtype=np.int32)
         return action_mask
 
     def app_is_allocated(self, agent_id):
@@ -437,6 +456,9 @@ class Environment(MultiAgentEnv):
         else:
             wait_time = max([self.current_app_endtimes[agent_id][ms]+self.latencies[agent_id][self.current_app_allocation[agent_id][task_ordering.index(ms)]][chosen_node]-self.current_period for ms in parent_ms])
         computation_time = int(self.compute_time_required(chosen_node, agent_id, ms_cpu, data_size))
+        # print(f"Computation time for node {chosen_node}: {computation_time}")
+        # print(f"Waiting time for node {chosen_node}: {wait_time}")
+
         self.app_spans[agent_id] += computation_time + wait_time
 
         valid = False
@@ -459,23 +481,6 @@ class Environment(MultiAgentEnv):
                     utilizations.append(self.remaining_node_capacities_shared[chosen_node-self.num_nodes_domain][scheduled_period+period]-ms_cpu)
             valid = True
 
-        # valid = True
-        # utilizations = deque([])
-        # for period in range(computation_time):
-        #     if self.current_period+wait_time+period >= 5000:
-        #         valid = False
-        #         break
-        #     if chosen_node<self.num_nodes_domain:
-        #         if self.remaining_node_capacities_domain[agent_id][chosen_node][self.current_period+period] < ms_cpu:
-        #             valid = False
-        #             break
-        #         utilizations.append(self.remaining_node_capacities_domain[agent_id][chosen_node][self.current_period+period]-ms_cpu)
-        #     else:
-        #         if self.remaining_node_capacities_shared[chosen_node-self.num_nodes_domain][self.current_period+period] < ms_cpu:
-        #             valid = False
-        #             break
-        #         utilizations.append(self.remaining_node_capacities_shared[chosen_node-self.num_nodes_domain][self.current_period+period]-ms_cpu)
-
         if valid:
             for period in range(computation_time):
                 if chosen_node < self.num_nodes_domain:
@@ -490,6 +495,8 @@ class Environment(MultiAgentEnv):
             self.power_consumptions.append(power_consumption[node_id]*computation_time*ms_cpu)
             self.current_ms[agent_id] = self.current_ms[agent_id] + 1
 
+            # print(f"Scheduled period: {scheduled_period}, wait time: {wait_time}, computation time: {computation_time}, chosen node: {chosen_node}")
+
             if chosen_node < self.num_nodes_domain:
                 self.stored_in_edge += 1
             else:
@@ -501,7 +508,7 @@ class Environment(MultiAgentEnv):
             if max(self.current_app_endtimes[agent_id].values()) == self.current_app_endtimes[agent_id][current_task]:
                 # reward = -self.weights['power']*power_consumption[node_id]*computation_time*ms_cpu/self.max_consumption/self.max_latency-self.weights['latency']*(max(self.current_app_endtimes[agent_id])-self.current_period)/self.max_latency-self.weights['cost']*node_costs[node_id]*computation_time/self.max_cost/self.max_latency
                 reward = -self.weights['latency']*(max(self.current_app_endtimes[agent_id].values())-self.current_period)/self.max_latency-self.weights['cost']*node_costs[node_id]*computation_time/self.max_cost/self.max_latency
-
+            
             else:
                 reward = -self.weights['cost']*node_costs[node_id]*computation_time/self.max_cost/self.max_latency
         else:
@@ -548,7 +555,7 @@ class Environment(MultiAgentEnv):
                     reward -= 1
             else:
                 validity = True
-                reward = 0 
+                reward = 0
             rewards[agent_id] = reward
             terminateds[agent_id] = not validity  # Not terminating agents mid-period explicitly
             truncateds[agent_id] = False

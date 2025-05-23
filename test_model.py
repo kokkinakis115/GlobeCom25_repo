@@ -17,12 +17,12 @@ def test_model(avg_tasks=None, arrival_rate=None, agents=2):
     # np.random.seed(1)
     num_agents = agents
     num_agents_trained = 3
-    env_name = f"CNA_Environment_2_agents_large_workload_2"
+    env_name = f"Environment_4_agents_modified"
     
-    max_ep_len = 2000           # max timesteps in one episode
+    max_ep_len = 4000           # max timesteps in one episode
 
 
-    total_test_episodes = 20    # total num of testing episodes
+    total_test_episodes = 10    # total num of testing episodes
 
     K_epochs = 80               # update policy for K epochs
     eps_clip = 0.2              # clip parameter for PPO
@@ -38,20 +38,19 @@ def test_model(avg_tasks=None, arrival_rate=None, agents=2):
     params = {
         "time_periods": 11,
         "agents": num_agents,
-        "num_nodes_domain": 10,
+        "num_nodes_domain": 5,
         "num_nodes_shared": 10,
-        "capacity_range_domain": (20, 30),
+        "capacity_range_domain": (16, 24),
         "capacity_range_shared": (100, 200),
-        # "num_microservices": 10,
-        "arrival_rate": 5,
+        "arrival_rate": 6,
         "look_ahead_window": 500,
-        # "max_ms": 5,
         "window": 20,
         "max_tasks": 60,
         "task_features": 2,
         "max_dependencies": 100,
         "from_trace": True
     }
+
     if arrival_rate is not None:
         params["arrival_rate"] = arrival_rate
     
@@ -69,7 +68,7 @@ def test_model(avg_tasks=None, arrival_rate=None, agents=2):
     ctde = True
     
     # initialize a PPO agent
-    ppo_agent = PPO_MARL(params['num_nodes_domain'], params['num_nodes_shared'], action_dim, lr_gnn, gamma, K_epochs, eps_clip, params['agents'], inference=True)
+    ppo_agent = PPO_MARL(params['num_nodes_domain'], params['num_nodes_shared'], action_dim, lr_gnn, gamma, K_epochs, eps_clip, params['agents'], inference=True, messages=False, modified=True)
     # preTrained weights directory
 
     random_seed = 0             #### set this to load a particular checkpoint trained on random seed

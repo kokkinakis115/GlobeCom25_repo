@@ -46,7 +46,7 @@ def create_adj_matrix(num_of_nodes, edge_nodes, fog_nodes, cloud_adj_matrix): #c
                 matrix[i][j] = np.random.randint(1,10)
                 matrix[j][i] = matrix[i][j]
         for j in range(edge[1], fog[1]):
-            matrix[i][j] = np.random.randint(15,25)
+            matrix[i][j] = np.random.randint(10,50)
             matrix[j][i] = matrix[i][j]
             
     for i in range(fog[0], fog[1]):
@@ -58,8 +58,9 @@ def create_adj_matrix(num_of_nodes, edge_nodes, fog_nodes, cloud_adj_matrix): #c
                 matrix[i][j] = cloud_adj_matrix[i-fog[0]][j-fog[0]]
                 matrix[j][i] = matrix[i][j]                        
 
-    adj_matrix = floyd_warshall(matrix)
-    return adj_matrix
+    # adj_matrix = floyd_warshall(matrix)
+    # return adj_matrix
+    return matrix
 
 def reward_func(node_percentage, latency, cost, weights):
     reward = weights['num_of_fragments']*node_percentage - weights['cost']*cost - weights['latency']*latency
